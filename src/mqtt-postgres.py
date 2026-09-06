@@ -63,6 +63,21 @@ def on_message(client, userdata, msg):
     print(f"Topic:   {msg.topic}")
     print(f"Payload: {msg.payload.decode()}")
     print("----------------------------\n")
+    # NEED TO VALIDATE/SECURE INCOMING DATA
+    # Submit to database
+    try:
+        with psycopg.connect(**config) as conn:
+            with conn.cursor() as cur:
+                
+                # For a single row:
+                cur.execute(insert_query, (msg.payload.decode(),))
+                
+                # Commit changes to make them permanent
+                conn.commit()
+                print("Message inserted into database successfully!")
+                
+    except Exception as e:
+        print(f"An error occurred inserting to database: {e}")
 
 def on_publish(client, userdata, mid, reason_code=None, properties=None):
     """Triggered when a message is successfully published."""
