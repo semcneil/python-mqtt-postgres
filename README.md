@@ -1,6 +1,18 @@
 # python-mqtt-postgres
 This shows connecting MQTT subscription to save in a PostgreSQL database
 
+To run in the background and survive terminal disconnects use `tmux`
+```
+tmux new -s mqttpost # starts new session named mqttpost
+python src/mqtt-postgres.py  # starts script
+```
+Detach by pressing `Ctrl + b` then `d`
+
+Reconnect later in another terminal with
+```
+tmux attach -t mqttpost
+```
+
 This assumes an environmental variable file in the form
 ```
 # --- Database ---
