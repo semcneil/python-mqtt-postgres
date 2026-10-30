@@ -135,7 +135,7 @@ def main():
     # Publish a test message
     curTime = datetime.now()
     timeString = curTime.strftime("%Y-%m-%d %H:%M:%S")
-    test_payload = f'{{"ModName":"MQTT2Postgres","date":"{timeString}","boot":{True}}}'
+    test_payload = f'{{"ModName":"MQTT2Postgres","date":"{timeString}","boot":"True"}}'
     print(f"[STATUS]  Publishing message: '{test_payload}'")
     client.publish(MQTT_TOPIC, test_payload, qos=1)
 
