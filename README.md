@@ -21,6 +21,7 @@ DBUSER="database_username"
 DBPASS="database_password"
 DBHOST="localhost"
 DBPORT="5432"
+DBTABLE="mydatatablename"
 
 # --- MQTT ---
 MQTT_HOST="mqtt.host.name"
@@ -30,3 +31,4 @@ MQTT_TOPIC="nesso/test"
 MQTT_USER="mqtt_user"
 MQTT_PASS="mqtt_pass"
 ```
+Stored in a location such as: `/etc/iot-creds/vars.sh`

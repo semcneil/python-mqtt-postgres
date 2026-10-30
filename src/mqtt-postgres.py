@@ -7,6 +7,7 @@ from Python.
 | Author: Seth McNeill
 | Date: 2026 September 06
 """
+
 import time
 import ssl
 import paho.mqtt.client as mqtt
@@ -15,49 +16,24 @@ from dotenv import load_dotenv
 import logging
 import psycopg
 from datetime import datetime
+import argparse
+from functools import partial  # for adding arguments to MQTT callbacks
 
-# load the environmental variables
-load_dotenv("/etc/iot-creds/vars.sh")
-
-# 1. Define  the database connection details
-config = {
-    "dbname": os.getenv('DBNAME'),
-    "user": os.getenv('DBUSER'),
-    "password": os.getenv('DBPASS'),
-    "host": os.getenv("DBHOST"),
-    "port": os.getenv("DBPORT")
-}
-
-# 2. Define the SQL template using %s placeholders
-insert_query = """
-    INSERT INTO "testjunk2" (data) 
-    VALUES (%s);
-"""
-
-# --- MQTT CONFIGURATION ---
-MQTT_HOST = os.getenv('MQTT_HOST')
-MQTT_PORT = int(os.getenv('MQTT_PORT'))
-MQTT_PATH = os.getenv('MQTT_PATH') 
-# MQTT_TOPIC = "test/websocket/channel"
-MQTT_TOPIC = os.getenv('MQTT_TOPIC')
-
-# --- MQTT AUTHENTICATION ---
-MQTT_USER = os.getenv('MQTT_USER')
-MQTT_PASS = os.getenv('MQTT_PASS')
 
 # --- MQTT CALLBACKS ---
-def on_connect(client, userdata, flags, rc, properties=None):
+def on_connect(client, userdata, flags, rc, properties=None, dbconfig=None, topic=None):
     """Triggered when the client connects to the broker."""
     if rc == 0:
-        print(f"[SUCCESS] Connected to {MQTT_HOST} on port {MQTT_PORT}")
-        print(f"[STATUS]  Subscribing to topic: {MQTT_TOPIC}...")
-        client.subscribe(MQTT_TOPIC)
+        # print(f"[SUCCESS] Connected to {MQTT_HOST} on port {MQTT_PORT}")
+        # print(f"[STATUS]  Subscribing to topic: {MQTT_TOPIC}...")
+        print("Successfully connected to MQTT")
+        client.subscribe(topic)
     else:
         print(f"[ERROR]   Connection failed with status code: {rc}")
         if rc == 5:
             print("[ERROR]   Check your username or password credentials.")
 
-def on_message(client, userdata, msg):
+def on_message(client, userdata, msg, dbconfig_dict, insert_query):
     """Triggered when a message is received from a subscribed topic."""
     print("\n--- NEW MESSAGE RECEIVED ---")
     print(f"Topic:   {msg.topic}")
@@ -66,9 +42,8 @@ def on_message(client, userdata, msg):
     # NEED TO VALIDATE/SECURE INCOMING DATA
     # Submit to database
     try:
-        with psycopg.connect(**config) as conn:
+        with psycopg.connect(**dbconfig_dict) as conn:
             with conn.cursor() as cur:
-                
                 # For a single row:
                 cur.execute(insert_query, (msg.payload.decode(),))
                 
@@ -85,6 +60,32 @@ def on_publish(client, userdata, mid, reason_code=None, properties=None):
 
 
 def main():
+    # 1. Define  the database connection details
+    dbconfig_dict = {
+        "dbname": os.getenv('DBNAME'),
+        "user": os.getenv('DBUSER'),
+        "password": os.getenv('DBPASS'),
+        "host": os.getenv("DBHOST"),
+        "port": os.getenv("DBPORT")
+    }
+    # --- MQTT CONFIGURATION ---
+    MQTT_HOST = os.getenv('MQTT_HOST')
+    MQTT_PORT = int(os.getenv('MQTT_PORT'))
+    MQTT_PATH = os.getenv('MQTT_PATH') 
+    # MQTT_TOPIC = "test/websocket/channel"
+    MQTT_TOPIC = os.getenv('MQTT_TOPIC')
+
+    # --- MQTT AUTHENTICATION ---
+    MQTT_USER = os.getenv('MQTT_USER')
+    MQTT_PASS = os.getenv('MQTT_PASS')
+
+    # 2. Define the SQL template using %s placeholders
+    insert_query = psycopg.sql.SQL("""
+        INSERT INTO {table} ({field}) 
+        VALUES (%s);
+    """).format(table=psycopg.sql.Identifier(os.getenv('DBTABLE')), 
+           field=psycopg.sql.Identifier(os.getenv('DBCOL')),
+           )
     # Initialize client with WebSockets transport layer
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, transport="websockets")  
     logging.basicConfig(level=logging.DEBUG)
@@ -109,8 +110,12 @@ def main():
     client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 
     # Assign event callbacks
-    client.on_connect = on_connect
-    client.on_message = on_message
+    # create a callback with the expected arguments while adding needed ones
+    bound_on_connect = partial(on_connect, dbconfig=dbconfig_dict, topic=MQTT_TOPIC)
+    client.on_connect = bound_on_connect
+    # create a callback with the expected arguments while adding needed ones
+    bound_on_message = partial(on_message, dbconfig_dict=dbconfig_dict, insert_query=insert_query)
+    client.on_message = bound_on_message
     client.on_publish = on_publish
 
     print(f"[STATUS]  Initiating connection to wss://{MQTT_HOST}:{MQTT_PORT}{MQTT_PATH}...")
@@ -130,7 +135,7 @@ def main():
     # Publish a test message
     curTime = datetime.now()
     timeString = curTime.strftime("%Y-%m-%d %H:%M:%S")
-    test_payload = f"Python,{timeString},boot"
+    test_payload = f'{{"ModName":"MQTT2Postgres","date":"{timeString}","boot":{True}}}'
     print(f"[STATUS]  Publishing message: '{test_payload}'")
     client.publish(MQTT_TOPIC, test_payload, qos=1)
 
@@ -147,4 +152,9 @@ def main():
         print("[STATUS]  Disconnected cleanly.")
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="A MQTT to PostgreSQL database connector")
+    parser.add_argument("-f", "--filename", help="Name of the env file with all the settings")
+    args = parser.parse_args()
+    load_dotenv(args.filename)
+
     main()
