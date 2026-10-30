@@ -1,6 +1,11 @@
 # python-mqtt-postgres
 This shows connecting MQTT subscription to save in a PostgreSQL database
 
+Install the needed libraries
+```
+uv pip install paho-mqtt dotenv psycopg
+```
+
 To run in the background and survive terminal disconnects use `tmux`
 ```
 tmux new -s mqttpost # starts new session named mqttpost
