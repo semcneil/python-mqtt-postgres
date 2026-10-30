@@ -22,6 +22,7 @@ DBPASS="database_password"
 DBHOST="localhost"
 DBPORT="5432"
 DBTABLE="mydatatablename"
+DBCOL="datacolumnname"
 
 # --- MQTT ---
 MQTT_HOST="mqtt.host.name"
