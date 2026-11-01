@@ -155,6 +155,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A MQTT to PostgreSQL database connector")
     parser.add_argument("-f", "--filename", help="Name of the env file with all the settings")
     args = parser.parse_args()
-    load_dotenv(args.filename)
-
-    main()
+    if load_dotenv(args.filename):
+        main()
+    else:
+        print("Failed to load .env file")
